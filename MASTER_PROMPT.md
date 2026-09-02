@@ -2,7 +2,7 @@
 
 ## 1. Your role
 
-You are the senior software engineer helping a beginner build **ORBIT**, an AI-powered Binance market-intelligence and trade-preparation agent.
+You are the senior software engineer helping a beginner build **ORBIT**, an AI-powered, read-only Binance market and portfolio-intelligence agent.
 
 Work incrementally. Before changing files, inspect the repository and explain:
 
@@ -19,8 +19,9 @@ ORBIT means:
 
 - **Observe** — collect reliable Binance market and account data.
 - **Reason** — determine which tools and calculations are needed.
-- **Analyze** — evaluate technical, market, on-chain, and portfolio risk signals.
-- **Execute** — prepare an action and execute it only after explicit user approval.
+- **Balance** — evaluate allocation, concentration, and diversification.
+- **Inform** — explain market, technical, on-chain, and portfolio-risk signals.
+- **Track** — maintain a safe audit trail of data reads and generated suggestions.
 
 The final user experience should support requests such as:
 
@@ -28,9 +29,10 @@ The final user experience should support requests such as:
 - “Compare BTC, ETH, and BNB.”
 - “Which asset has the strongest setup?”
 - “Show my portfolio risk.”
-- “Prepare a $20 BTC trade.”
+- “How could I improve my portfolio allocation?”
+- “What trades could I consider taking myself?”
 
-Every result must clearly distinguish factual market data, calculated metrics, AI interpretation, and simulated output.
+Every result must clearly distinguish factual market data, calculated metrics, AI interpretation, and simulated output. Suggestions are informational: users make and execute their own decisions outside ORBIT.
 
 ## 3. Initial scope
 
@@ -44,14 +46,15 @@ The MVP includes:
 - Side-by-side asset comparison.
 - Transparent opportunity scoring.
 - Risk classification and explanations.
-- A trade-proposal screen.
-- Explicit Confirm and Cancel controls.
+- Read-only portfolio holdings and allocation views.
+- Explainable portfolio-improvement and trade-consideration suggestions.
 - An agent activity log.
 - A persistent, highly visible **Simulation Mode** indicator.
 
 The MVP must not:
 
-- Place real orders.
+- Create, simulate, submit, confirm, cancel, or execute orders.
+- Request Binance trading permission.
 - Request withdrawal permission.
 - claim simulated, stale, or unavailable data is live.
 - Store secrets in source code, browser storage, logs, or Git.
@@ -114,9 +117,8 @@ User request
   → risk checks
   → opportunity scoring
   → explanation generation
-  → optional trade proposal
-  → explicit human confirmation
-  → simulated execution
+  → portfolio and market risk checks
+  → informational suggestions
   → final status and audit event
 ```
 
@@ -130,8 +132,10 @@ Create typed models for at least:
 - `TechnicalMetrics`: trend, momentum, volatility, volume signal, support/resistance summary.
 - `ScoreBreakdown`: market, technical, on-chain (when available), and risk scores plus final score.
 - `AnalysisReport`: asset, snapshots, metrics, risk level, reasons, limitations, and generated time.
-- `TradeProposal`: unique ID, symbol, side, quote amount, estimated quantity, reference price, risk, rationale, simulation status, expiration, and confirmation state.
-- `AuditEvent`: timestamp, request/proposal ID, stage, status, and safe summary.
+- `PortfolioPosition`: symbol, quantity, market value, and allocation percentage.
+- `PortfolioSnapshot`: total value, positions, stablecoin percentage, concentration risk, source, permission scope, and fetched time.
+- `PortfolioSuggestion`: unique ID, symbol, suggested action, current allocation, target range, risk, confidence, rationale, disclaimer, and generated time.
+- `AuditEvent`: timestamp, request ID, stage, status, and safe summary.
 - Structured error responses with an error code, human-readable message, retryability, and request ID.
 
 Use UTC timestamps and make data-source/freshness information visible.
@@ -149,19 +153,18 @@ For the first scoring version:
 - Provide 2–5 concise reasons and at least one limitation/caution.
 - Label the result as an informational signal, not guaranteed advice.
 
-The LLM may translate calculated results into clear language and route requests to tools, but it must not fabricate prices, indicators, balances, order IDs, or execution results.
+The LLM may translate calculated results into clear language and route requests to tools, but it must not fabricate prices, indicators, balances, account permissions, or portfolio suggestions.
 
 ## 9. Simulation mode
 
-Simulation mode is the first complete product mode.
+Simulation mode is the first complete product mode and remains strictly read-only.
 
 - Use deterministic fixture data or a clearly labeled mock-data service.
-- Put **SIMULATION — NO REAL ORDERS** prominently in the header and proposal dialog.
-- Generate fake order IDs with an obvious `sim_` prefix.
-- Keep simulated balances and trades separate from any future real data.
+- Put **SIMULATION — READ-ONLY · NO ORDER CAPABILITY** prominently in the interface.
+- Do not generate fake orders, proposals, or execution states.
+- Keep simulated balances separate from any future real account data.
 - Add a “Reset simulation” action.
-- Ensure confirmation is required even for simulated trades.
-- Reject duplicate, expired, invalid, or already-cancelled proposals.
+- Clearly label all fixture data and informational suggestions.
 
 ## 10. Binance integration phases
 
@@ -171,9 +174,10 @@ Use this order:
 
 1. Simulation fixtures.
 2. Public read-only Binance market data that requires no account permissions.
-3. Optional authenticated read-only/Testnet account data.
-4. Testnet order execution, only after a separate approval and security review.
-5. Live trading is outside the MVP and must remain disabled unless the owner gives explicit written approval.
+3. Optional authenticated read-only account data using least-privilege Binance credentials.
+4. Portfolio analysis based on read-only balances and market data.
+
+Testnet and live order execution are outside ORBIT's product scope. Do not add them, even behind a feature flag, without a separate owner-approved change to this master brief.
 
 Abstract market providers behind a service interface so simulation and live read-only data can be switched safely.
 
@@ -187,27 +191,26 @@ When an LLM is later enabled:
 - Use tool/function calling with strict schemas.
 - Validate all tool arguments server-side.
 - Apply timeouts, retries with limits, and cost/token bounds.
-- Never allow model text to bypass confirmation or risk checks.
+- Never allow model text to bypass read-only boundaries, data validation, or risk disclosures.
 - Defend against prompt injection in external content and tool responses.
 - Do not send Binance API secrets or unnecessary personal/account data to the model.
 - Log safe metadata, not raw secrets or private prompts.
 
-## 12. Trading safety invariants
+## 12. Read-only safety invariants
 
 These rules are mandatory and must be enforced by backend code:
 
-- Default to simulation.
-- No withdrawal functionality or withdrawal permissions.
-- Never execute directly from an analysis response.
-- Require a server-created trade proposal and a separate explicit confirmation request.
-- Bind confirmation to proposal ID, exact parameters, user/session, and expiration time.
-- Make confirmation idempotent to prevent duplicate execution.
-- Show side, pair, amount, estimated quantity, reference price, fees/slippage warning, and mode before confirmation.
-- Add configurable maximum order size and daily-loss limits before any Testnet work.
-- Reject unsupported symbols, invalid precision, stale prices, insufficient balance, and excessive estimated slippage.
+- Default to simulation until a read-only Binance adapter is intentionally selected.
+- No order, trade, transfer, deposit-address, or withdrawal functionality.
+- Never request trading or withdrawal permissions.
+- Accept only Binance credentials whose exchange-level permissions are read-only.
+- Refuse startup or account connection when trading or withdrawal access is detected.
+- Suggestions must use non-imperative language such as `HOLD`, `CONSIDER_BUY`, `CONSIDER_REDUCE`, or `REBALANCE`.
+- Suggestions must include rationale, risk, confidence, data freshness, and an informational-only disclaimer.
+- Never represent a suggestion as an instruction, guarantee, prepared order, or completed action.
 - Use least-privilege credentials and document IP restrictions where supported.
 - Never expose a secret to the frontend or return it in an error.
-- A user-facing Cancel action must permanently invalidate the proposal.
+- Log safe summaries of reads and analyses; never log secrets or unnecessary private account data.
 
 ## 13. UI direction
 
@@ -217,11 +220,11 @@ Visual direction:
 
 - Premium dark dashboard with restrained Binance-inspired yellow accents.
 - Clear hierarchy, high contrast, responsive layouts, and keyboard accessibility.
-- Navigation: Overview, Markets, Compare, Portfolio, Activity.
+- Navigation: Command, Markets, Compare, Portfolio, Activity.
 - Main analysis card: asset, current snapshot, trend, risk, score, reasons, limitations.
 - Score card: individual component scores and final weighted result.
 - Activity timeline: request accepted, data retrieved, calculations completed, risk checked, response prepared.
-- Trade proposal: unmistakable simulation badge and confirmation dialog.
+- Suggestion card: current allocation, target range, risk, confidence, rationale, and an unmistakable informational-only label.
 - Loading, empty, stale-data, partial-data, and error states.
 
 Do not fill the interface with decorative charts. Every chart or number must have a purpose, source, unit, timeframe, and freshness indicator.
@@ -233,11 +236,9 @@ The exact design may evolve, but start with routes similar to:
 ```text
 GET  /health
 GET  /api/v1/market/{symbol}
-POST /api/v1/analyze
-POST /api/v1/compare
-POST /api/v1/trade-proposals
-POST /api/v1/trade-proposals/{id}/confirm
-POST /api/v1/trade-proposals/{id}/cancel
+GET  /api/v1/analyze/{symbol}
+GET  /api/v1/portfolio
+GET  /api/v1/portfolio/suggestions
 GET  /api/v1/activity
 POST /api/v1/simulation/reset
 ```
@@ -250,12 +251,13 @@ Each milestone must include appropriate tests. At minimum cover:
 
 - Score calculations and missing-data behavior.
 - Risk rules and threshold boundaries.
-- Symbol and amount validation.
+- Symbol and portfolio-data validation.
 - Stale-data handling.
-- Proposal creation, expiration, cancel, and confirmation.
-- Idempotent confirmation and duplicate-request protection.
+- Read-only account-permission enforcement.
+- Suggestion rationale, confidence, risk, and disclaimer behavior.
+- Proof that no order or trade-execution routes exist.
 - API error contracts.
-- Core frontend rendering and confirmation interactions.
+- Core frontend rendering and suggestion interactions.
 
 Before declaring a milestone complete:
 
@@ -280,6 +282,8 @@ LLM_PROVIDER=disabled
 LLM_API_KEY=
 BINANCE_API_KEY=
 BINANCE_API_SECRET=
+BINANCE_ACCOUNT_ACCESS=read_only
+ORDER_CAPABILITY=disabled
 ```
 
 Names may be adjusted, but secrets must remain server-side. Never add real keys to examples, tests, screenshots, commits, or chat output.
@@ -312,11 +316,11 @@ Deployment is a later milestone. Before deployment:
 - Add health checks and structured logs.
 - Prevent secrets from entering browser bundles.
 - Configure conservative request and LLM rate limits.
-- Confirm simulation mode remains the production default.
+- Confirm simulation mode remains the production default and order capability remains absent.
 - Run tests and builds from a clean checkout.
 - Document rollback and key-rotation steps.
 
-Do not enable real or Testnet trading merely because the app is deployed.
+Do not add real, simulated, or Testnet trading merely because the app is deployed.
 
 ## 19. Five-day milestone plan
 
@@ -326,7 +330,7 @@ Do not enable real or Testnet trading merely because the app is deployed.
 - Build the polished dashboard from mock data.
 - Add health endpoint and typed API contracts.
 - Implement Analyze, Compare, Portfolio Risk demo, and activity log.
-- Implement simulated proposal → confirm/cancel flow.
+- Implement read-only portfolio fixtures and explainable suggestions.
 - Add tests and beginner setup documentation.
 
 Stop and request approval.
@@ -349,14 +353,16 @@ Stop and request approval.
 
 Stop and request approval.
 
-### Milestone 4 — Testnet preparation
+### Milestone 4 — Read-only Binance account integration
 
-- Perform a security review.
-- Implement authenticated access only against the appropriate Binance Testnet or officially supported sandbox.
-- Add limits, proposal expiration, idempotency, and audit protections.
-- Keep execution disabled behind a feature flag until explicit owner approval.
+- Verify current official Binance account and permission documentation.
+- Perform a security and privacy review.
+- Implement authenticated balance and account reads with server-side credentials only.
+- Reject credentials with trading or withdrawal permissions when permission metadata is available.
+- Add timeout, retry, rate-limit, freshness, redaction, and safe audit protections.
+- Test degraded, stale, partial, unauthorized, and over-privileged credential states.
 
-Stop and request approval before enabling execution.
+Stop and request approval before enabling authenticated read-only account access.
 
 ### Milestone 5 — Competition-ready delivery
 
@@ -377,7 +383,7 @@ For the first task only, do the following:
 4. Do not write application code yet.
 5. Wait for the owner to approve the plan.
 
-After approval, implement only Milestone 1. Keep everything in simulation mode.
+After approval, implement only Milestone 1. Keep everything in simulation mode and strictly read-only.
 
 ## 21. Communication contract
 
@@ -390,7 +396,7 @@ At the end of every work unit, report:
 - Known limitations or safety concerns.
 - The single recommended next step.
 
-Ask before making architectural changes, adding paid services, enabling external writes, introducing authenticated Binance access, or changing the agreed scope.
+Ask before making architectural changes, adding paid services, enabling external writes, introducing authenticated Binance read-only access, or changing the agreed scope. Order execution is prohibited unless the owner first approves a separate revision of this master brief.
 
 ## 22. Project facts still to confirm
 
