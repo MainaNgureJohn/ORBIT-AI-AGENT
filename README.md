@@ -200,3 +200,7 @@ docs/                    Architecture and integration documentation
 ## Contributing and security
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Report security concerns according to [SECURITY.md](SECURITY.md), and never include real credentials in a public issue.
+
+## License
+
+ORBIT is available under the [MIT License](LICENSE).
