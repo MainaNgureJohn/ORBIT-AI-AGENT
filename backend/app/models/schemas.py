@@ -18,8 +18,9 @@ class AssetSnapshot(BaseModel):
     change_24h: float
     volume_24h: float
     timestamp: datetime
-    source: Literal["simulation"] = "simulation"
-    freshness: Literal["fixture"] = "fixture"
+    retrieved_at: datetime | None = None
+    source: Literal["simulation", "binance"] = "simulation"
+    freshness: Literal["fixture", "fresh", "stale"] = "fixture"
 
 
 class TechnicalMetrics(BaseModel):
@@ -36,6 +37,7 @@ class ScoreBreakdown(BaseModel):
     on_chain: float | None = Field(default=None, ge=0, le=100)
     risk: float = Field(ge=0, le=100)
     final: float = Field(ge=0, le=100)
+    missing_components: list[str] = Field(default_factory=list)
 
 
 class AnalysisReport(BaseModel):
@@ -47,6 +49,7 @@ class AnalysisReport(BaseModel):
     reasons: list[str]
     limitations: list[str]
     generated_at: datetime
+    explanation: str | None = None
 
 
 class PortfolioPosition(BaseModel):
@@ -56,13 +59,45 @@ class PortfolioPosition(BaseModel):
     allocation_percent: float = Field(ge=0, le=100)
 
 
+class PortfolioHolding(BaseModel):
+    """Every non-zero account holding, including assets without a price."""
+
+    symbol: str
+    quantity: float = Field(ge=0)
+    market_value: float | None = Field(default=None, ge=0)
+    allocation_percent: float | None = Field(default=None, ge=0, le=100)
+    unit_price: float | None = Field(default=None, ge=0)
+    price_status: Literal["available", "unpriced"]
+    source: Literal["binance"] = "binance"
+    freshness: Literal["fresh", "stale"] = "fresh"
+
+
 class PortfolioSnapshot(BaseModel):
     total_value: float = Field(ge=0)
     stablecoin_percent: float = Field(ge=0, le=100)
     concentration_risk: RiskLevel
     positions: list[PortfolioPosition]
-    source: Literal["simulation"] = "simulation"
+    holdings: list[PortfolioHolding] = Field(default_factory=list)
+    source: Literal["simulation", "binance"] = "simulation"
     permission_scope: Literal["read_only"] = "read_only"
+    fetched_at: datetime
+    freshness: Literal["fixture", "fresh", "stale"] = "fixture"
+    unpriced_assets: list[str] = Field(default_factory=list)
+
+
+class AccountBalance(BaseModel):
+    asset: str
+    free: float = Field(ge=0)
+    locked: float = Field(ge=0)
+    total: float = Field(ge=0)
+
+
+class AccountSnapshot(BaseModel):
+    balances: list[AccountBalance]
+    source: Literal["binance"] = "binance"
+    permission_scope: Literal["read_only"] = "read_only"
+    permissions_verified: bool = True
+    freshness: Literal["fresh", "stale"] = "fresh"
     fetched_at: datetime
 
 
@@ -77,6 +112,17 @@ class PortfolioSuggestion(BaseModel):
     rationale: list[str]
     disclaimer: str = "Informational suggestion only. ORBIT cannot place orders."
     generated_at: datetime
+
+
+class AdviceRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+
+
+class AdviceResponse(BaseModel):
+    answer: str
+    provider: Literal["openai", "groq", "deterministic"]
+    source: Literal["binance", "none"] = "none"
+    limitations: list[str] = Field(default_factory=list)
 
 
 class AuditEvent(BaseModel):
